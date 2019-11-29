@@ -1,0 +1,33 @@
+<title>Add problem to ladder</title>
+
+<h1>Add problem to ladder</h1><br>
+
+<form method="post">
+	<label for="ladder_id">Ladder Name:</label>
+	<select name="ladder_id" id="ladder_id">
+		{% for ladder in ladders %}
+			<option value='{{ ladder.key.id() }}'>{{ ladder.name }}</option>
+		{% endfor %}
+	</select><br><br>
+
+	<label for="judge_type">Judge Type:</label>
+	<select name="judge_type" id="judge_type">
+		{% for judge, val in judge_types.iteritems() %}
+			<option value='{{ val }}' {% if judge=='CODEFORCES' %}selected{% endif %} >{{ judge }}</option>
+		{% endfor %}
+	</select><br><br>
+
+	<label for="contestId">Contest ID:</label>
+	<input type="text" id="contestId" name="contestId" required><br><br>
+
+	<label for="index">Index:</label>
+	<input type="text" id="index" name="index" required><br><br>
+
+
+	<button type="submit">Add Problem</button>
+</form>
+
+{% if succ %}
+	<br><br>
+	<h3>Successfully added problem</h3>
+{% endif %}

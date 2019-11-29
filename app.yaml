@@ -13,5 +13,8 @@ handlers:
   static_dir: img
 - url: /css
   static_dir: css
+- url: /admin/.*
+  script: main.app
+  login: admin
 - url: /.*
   script: main.app

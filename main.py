@@ -13,6 +13,34 @@ import requests_toolbelt.adapters.appengine
 requests_toolbelt.adapters.appengine.monkeypatch()
 
 
+JUDGE_TYPES = {
+	"UNKNOWN": 0,
+	"CODEFORCES": 1,
+}
+
+def compute_url(self):
+	if self.judge_type == JUDGE_TYPES['CODEFORCES']:
+		kind = "gym" if self.contest_id>=100000 else "contest"
+		return "http://codeforces.com/%s/%s/problem/%s"%(kind, self.contest_id, self.index)
+
+	raise NotImplementedError(self.judge_type)
+
+class Problem(ndb.Model):
+	name = ndb.StringProperty()
+	added = ndb.DateTimeProperty(auto_now_add=True)
+	judge_type = ndb.IntegerProperty(choices = JUDGE_TYPES.values())
+
+	#Codeforces info
+	contest_id = ndb.IntegerProperty()
+	index = ndb.StringProperty()
+
+	url = ndb.ComputedProperty(compute_url)
+
+class Ladder(ndb.Model):
+	name = ndb.StringProperty()
+	problems = ndb.KeyProperty(kind=Problem, repeated=True)
+	created = ndb.DateTimeProperty(auto_now_add=True)
+
 class User(ndb.Model):
 	username = ndb.StringProperty()
 	username_lower = ndb.ComputedProperty(lambda self: self.username.lower())
@@ -24,6 +52,9 @@ class User(ndb.Model):
 	reset_link = ndb.StringProperty()
 	reset_expire = ndb.DateTimeProperty()
 	num_logins = ndb.IntegerProperty(default=0)
+
+	cf_username = ndb.StringProperty()
+	cf_read_from = ndb.IntegerProperty(default=1)
 
 def make_hash(password, salt):
 	h = hashlib.pbkdf2_hmac('sha256', password, salt, 100000)
@@ -88,6 +119,22 @@ def pick_login(func):
 def verify_captcha(action=None):
 	ret = requests.post("https://www.google.com/recaptcha/api/siteverify", {"secret": RECAPTCHA_SECRET_KEY, "response": request.form.get("g-recaptcha-response"), "remoteip": request.remote_addr}).json()
 	return ret["success"]
+
+def konekolize_problem(judge_type, **kwargs):
+	judge_type = int(judge_type)
+
+	if judge_type == JUDGE_TYPES["CODEFORCES"]:
+		contest_id = int(kwargs['contestId'])
+		index = kwargs['index'].upper()
+
+		problem = Problem.query(Problem.judge_type == judge_type, Problem.contest_id==contest_id, Problem.index==index).get()
+		if problem: return problem
+		problem = Problem(judge_type=judge_type, contest_id=contest_id, index=index)
+		problem.name = requests.get(problem.url).text.split('<div class="title">')[1].split("</div>")[0].split(". ", 1)[1]
+		problem.put()
+		return problem
+
+	raise NotImplementedError(judge_type)
 
 app = Flask(__name__, template_folder='.', static_folder='.')
 app.jinja_env.globals['recaptcha_key'] = recaptcha_key
@@ -185,4 +232,41 @@ def logout(user):
 	resp.set_cookie('sessionid', '', expires=0)
 	return resp
 
+@app.route('/admin/add_ladder', methods=['GET', 'POST'])
+def add_ladder():
+	if request.method=='GET':
+		return render_template("add_ladder.html")
+	
+	name = request.form.get("name")
+	if not name:
+		return "<h1>Didn't provide name for ladder</h1>"
+
+	ladder = Ladder(name=name)
+	ladder.put()
+	return "<h1>Ladder '%s' created successfully</h1>"%name
+
+@app.route('/admin/edit_ladder', methods=['GET', 'POST'])
+def edit_ladder():
+	ladders = Ladder.query().fetch()
+
+	if request.method=='GET':
+		return render_template("edit_ladder.html", ladders=ladders, judge_types=JUDGE_TYPES)
+	
+	try:
+		problem = konekolize_problem(**request.form.to_dict())
+	except Exception as e:
+		raise e
+		return "<h1>Issue adding problem</h1>"
+
+	ladder = Ladder.get_by_id(int(request.form.get("ladder_id")))
+	if not ladder:
+		return "<h1>Couldn't find ladder</h1>"
+
+	if problem.key not in ladder.problems:
+		ladder.problems.append(problem.key)
+		ladder.put()
+		return render_template("edit_ladder.html", ladders=ladders, judge_types=JUDGE_TYPES, succ=True)
+	else:
+		return "<h1>Problem already inside ladder</h1>"
+		
 
