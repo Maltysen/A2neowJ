@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{% block navlinks %}
+	<a class="mdl-navigation__link" href="profile?user={{ user.username }}">Profile ({{ user.username }})</a>
+	<a class="mdl-navigation__link" href="settings">Settings</a>
+	<a class="mdl-navigation__link" href="logout">Sign Out</a>
+{% endblock %}
