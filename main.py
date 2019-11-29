@@ -7,6 +7,11 @@ import hashlib
 import codecs
 from Crypto.Hash import SHA256, HMAC
 from secrets import *
+import requests
+import requests_toolbelt.adapters.appengine
+
+requests_toolbelt.adapters.appengine.monkeypatch()
+
 
 class User(ndb.Model):
 	username = ndb.StringProperty()
@@ -85,6 +90,7 @@ def verify_captcha(action=None):
 	return ret["success"]
 
 app = Flask(__name__, template_folder='.', static_folder='.')
+app.jinja_env.globals['recaptcha_key'] = recaptcha_key
 
 @app.route('/')
 @pick_login
@@ -94,8 +100,8 @@ def root(user):
 @app.route('/verify_register')
 @no_login
 def verify_register():
-	u = request.form.get("username").lower()
-	e = request.form.get("email")
+	u = request.args.get("username").lower()
+	e = request.args.get("email")
 	if User.query(User.username_lower==u).count():
 		return "username exists"
 	if User.query(User.email==e).count():
@@ -117,17 +123,17 @@ def register():
 		user = User(username=request.form.get("username"), password=make_hash(request.form.get("password"), os.urandom(8)), email=e, validation_link=SHA256.new(os.urandom(32)).hexdigest())
 		user.put()
 
-		send_message(
-			to=e,
-			subject="Validate your Email for A2neowJ",
-			body=app.jinja_env.get_template("emails/email_welcome.html").render(user=user))
+		#send_message(
+		#	to=e,
+		#	subject="Validate your Email for A2neowJ",
+		#	body=app.jinja_env.get_template("emails/email_welcome.html").render(user=user))
 
 		return redirect('login?welcome')
 
 	return render_template("register.html")
 
 def verify_login():
-	user = User.query(kind.username_lower == request.form.get("username").lower()).get()
+	user = User.query(User.username_lower == request.form.get("username").lower()).get()
 	if user:
 		if user.num_logins >= 5 and not verify_captcha():
 			return True
@@ -169,4 +175,14 @@ def login():
 	if verify==False:
 		return render_template("login.html", invalid=True)
 	return verify
+
+@app.route('/logout')
+@require_login
+def logout(user):
+	token = request.cookies.get('sessionid')
+	memcache.delete(token)
+	resp = redirect('/')
+	resp.set_cookie('sessionid', '', expires=0)
+	return resp
+
 

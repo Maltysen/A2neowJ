@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block name %}Register{% endblock %}
+
+{% block content %}
+	<h1>Register an Account</h1><br>
+
+	<form method="post" onsubmit="return verify()" id="reg_form">
+		<div>
+			<label for="username">Username</label>
+			<input type="text" id="username" name="username" pattern=".{6,}" title="6 characters minimum" required autofocus>
+		</div>
+
+		<div>
+			<label for="email">Email</label>
+			<input type="email" id="email" required name="email">
+		</div>
+
+		<div>
+			<label for="password">Password</label>
+			<input type="password" id="password" name="password" pattern=".{6,}" title="3 characters minimum" required>
+		</div>
+
+		<div>
+			<label for="password_check">Confirm Password</label>
+			<input type="password" id="password_check">
+		</div>
+
+		<br>
+		<label for="tos">
+			<input type="checkbox" id="tos" required>
+			<span>I agree to the <a href="tos">Terms of Service</a>.</span>
+		</label>
+
+		<br>
+		<div id="captcha" class="g-recaptcha" data-sitekey="{{ recaptcha_key }}"></div>					
+
+		<br>
+		<button type="submit">Register</button>
+
+	</form>
+
+	<script>
+		checking = done = false
+		
+		function verify() {
+			if (done) return true
+			if (checking) return false
+
+			if ($("#password").val()!==$("#password_check").val()) {
+				alert("The password confirmation doesn't match the password.")
+				return false
+			}
+
+			if (grecaptcha.getResponse().length===0) {
+				alert("Please complete the captcha.")
+				return false
+			}
+
+			checking = true
+			
+			$.get("verify_register", {username: $("#username").val(), email: $("#email").val()}, function(a) {
+				checking = false
+				if (a==="username exists") {
+					alert("This username is already in use.")
+				} else if (a==="email exists") {
+					alert("This email is already in use.")
+				} else if (a==="validated") {
+					done=true
+					$("#reg_form").submit()
+				}
+			})
+			return false
+		}
+	</script>
+
+{% endblock %}

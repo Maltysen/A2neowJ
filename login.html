@@ -3,4 +3,31 @@
 {% block name %}Login{% endblock %}
 
 {% block content %}
+				{% if reset=="" %}<div>Password sucessfully reset.</div>{% endif %}
+				{% if requested=="" %}<div>Sent password reset email (it expires in 1 day).</div>{% endif %}
+				{% if new=="" %}<div>Welcome to A2neowJ! Check your email for a verification link.</div>{% endif %}
+				{% if valid=="" %}<div style="color;">Your email has been sucessfully verified.</div>{% endif %}
+
+<br><br>
+<h1>Login</h1>
+
+<form method="post" onsubmit="return verify()">
+
+	<label for="username">Username:</label> <input type="text" id="username" name="username" autofocus><br><br>
+	<label for="password">Password:</label> <input type="password" id="password" name="password" autofocus>
+
+	<br><br>
+	{% if captcha %}<div class="g-recaptcha" data-sitekey="{{ recaptcha_key }}"></div>{% endif %}
+
+	<button type='submit'>Login</button><br><br>
+	{% if invalid %}<div style="color:red">Incorrect username or password</div>{% endif %}
+	{% if unvalid %}<div style="color:red">Your email hasn't been verified. Check your inbox.</div>{% endif %}
+</form>
+
+<script>
+	function verify() {
+		return $('#username').val()!=='' && $('#password').val()!=='' {% if captcha %} && grecaptcha.getResponse()!=='' {% endif %};
+	}
+</script>
+
 {% endblock %}
